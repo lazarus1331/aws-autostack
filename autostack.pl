@@ -13,8 +13,9 @@ use JSON;
 my %options;
 GetOptions(
     \%options,
-    "name|n:s",
+    "addoptions|a:s",
     "file|f:s",
+    "name|n:s",
     "help|h:+",
 );
 
@@ -51,10 +52,20 @@ foreach my $ref (@{$options{Outputs}}) {
 }
 
 # 6. Test
+foreach my $ref (@{$options{Outputs}}) {
+    if ( $ref->{OutputKey} =~ m/url/i ) {
+        print "Found URL type output. Proceeding with status code check:\n";
+        my $url = $ref->{OutputValue};
+        my $status = qx(curl -L -s -o /dev/null -w "%{http_code}" $url);
+        print "URL: $url\nStatus: $status\n";
+    }
+}
 
 print "END\n";
 exit(0);
 ## END ##
+
+## Functions ##
 sub get_outputs {
     my $hash_ref = shift;
     my $name = $hash_ref->{name};
@@ -94,7 +105,7 @@ sub check_status {
 
 sub create_stack {
     my %opts = @_;
-    my $cmd = "aws cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} 2>&1";
+    my $cmd = "aws cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} $opts{addoptions} 2>&1";
     my $results;
     eval { $results = qx($cmd) };
     if ($? >> 8 == 0 && defined($results)) {
