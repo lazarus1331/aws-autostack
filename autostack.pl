@@ -36,24 +36,71 @@ validate_name($options{name});
 create_stack(%options);
 
 # 4. Wait for stack creation to complete
-print "... waiting for stack creation to complete. Please be patient.\n"
+print "... waiting for stack creation to complete. Please be patient.\n";
+check_status(%options);
 
-# 5. Validate stack created successfully
+# 5. Get outputs, then print
+get_outputs(\%options);
+print "Outputs:\n";
+foreach my $ref (@{$options{Outputs}}) {
+    print "{\n";
+    foreach (keys %{$ref}) {
+        print "\t".$_." : ".$ref->{$_}."\n";
+    }
+    print "}\n";
+}
 
-# 6. Test webpage
+# 6. Test
 
 print "END\n";
 exit(0);
 ## END ##
+sub get_outputs {
+    my $hash_ref = shift;
+    my $name = $hash_ref->{name};
+#    open(my $FH, "<", "/home/michael/GIT/aws-autostack/test/describe-stacks.json");
+#    local $/;
+#    my $desc_json = <$FH>;
+    my $desc_json = qx(aws cloudformation describe-stacks --stack-name $name);
+    my $stack_ref = JSON->new->utf8->decode($desc_json);
+    my @stacks = @{$stack_ref->{Stacks}};
+    my @outputs = @{$stacks[0]->{Outputs}};
+    $hash_ref->{Outputs} = \@outputs;
+    return
+}
+
+sub check_status {
+    my %opts = @_;
+    my $cmd = "aws cloudformation describe-stack-events --stack-name $opts{name}";
+    my $done;
+    until ($done) {
+        sleep(20); # wait 20 seconds
+        my $out_json;
+        eval { $out_json = qx($cmd) };
+        my $event_ref = JSON->new->utf8->decode($out_json);
+        my @stackevents = @{$event_ref->{StackEvents}};    
+        foreach my $event (@stackevents) {
+            next unless ( $event->{StackName} =~ m/$opts{name}/ ); # only look at this stack
+            next unless ( $event->{ResourceType} =~ m/AWS::CloudFormation::Stack/ );
+            if ( $event->{ResourceStatus} =~ m/CREATE_COMPLETE/ ) {
+                print "\nOK: Stack creation completed successfully!\n";
+                $done = 1;
+            }
+        }
+        print ".";
+    }
+    return
+}
+
 sub create_stack {
-    my @opts = @_;
+    my %opts = @_;
     my $cmd = "aws cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} 2>&1";
     my $results;
     eval { $results = qx($cmd) };
     if ($? >> 8 == 0 && defined($results)) {
         print "OK: stack creation started successfully.\n";
         my $id_ref = JSON->new->utf8->decode($results);
-        print "\tStackId: $id_ref->{StackId}\n";
+        print "StackId: $id_ref->{StackId}\n";
     } else {
         die "FAIL: Cloudformation stack creation failed:$results\n";
     }
@@ -62,9 +109,6 @@ sub create_stack {
 
 sub validate_name {
     my $name = shift;
-    #open(my $FH, "<", "/home/michael/GIT/aws-autostack/test/describe-stacks.json");
-    #local $/;
-    #my $desc_json = <$FH>;
     my $desc_json = qx(aws cloudformation describe-stacks);
     my $stack_ref = JSON->new->utf8->decode($desc_json);
     my @stacks = @{$stack_ref->{Stacks}};
@@ -106,6 +150,6 @@ sub usage {
             name: the unique name to assign the stack
     
 USAGE
-    exit();
+    exit(3);
 }
 
