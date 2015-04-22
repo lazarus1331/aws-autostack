@@ -4,11 +4,10 @@ use 5.010;
 use strict;
 use warnings;
 
-use Carp;
-use Data::Dumper;
+#use Carp;
+#use Data::Dumper;
 use Getopt::Long;
 use JSON;
-#use LWP::UserAgent;
 
 my %options;
 GetOptions(
@@ -69,9 +68,6 @@ exit(0);
 sub get_outputs {
     my $hash_ref = shift;
     my $name = $hash_ref->{name};
-#    open(my $FH, "<", "/home/michael/GIT/aws-autostack/test/describe-stacks.json");
-#    local $/;
-#    my $desc_json = <$FH>;
     my $desc_json = qx(aws cloudformation describe-stacks --stack-name $name);
     my $stack_ref = JSON->new->utf8->decode($desc_json);
     my @stacks = @{$stack_ref->{Stacks}};
@@ -156,11 +152,13 @@ sub usage {
     print <<USAGE;
 
     Usage: $0 --file|-f {path/to/cftemplate} --name|-n {stack name}
+            [ --addoptions {create-stack options} ]
 
             file: the cloudformation template file
             name: the unique name to assign the stack
+            addoptions: additional options to include in the create-stack command
     
 USAGE
     exit(3);
 }
-
+__END__
