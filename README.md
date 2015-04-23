@@ -13,7 +13,21 @@ Perl Modules:
 
 Usage
 =====
-Autostack requires a cloudformation template, and a unique stack name.
+Autostack requires a cloudformation template, and a unique stack name to function.
 
     autostack.pl --file /path/to/file --name mystack
+
+Additional options:
+-------------------
+To pass parameter inputs, or to specify custom stack create commands, autostack will support reading from a json file.
+
+    autostack.pl --file /path/to/file --name mystack -json /path/to/file
+
+Create stack options can also be passed directly in from the command line, after ending normal option handling with "--".
+
+    autostack.pl --file /path/to/file --name mystack -- --disable-rollback 
+
+Examples
+========
+Located in the "cftemplates" folder are some example cloudformation infrastructure templates, which function out of the box.
 
