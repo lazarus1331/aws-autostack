@@ -4,15 +4,14 @@ use 5.010;
 use strict;
 use warnings;
 
-#use Carp;
-#use Data::Dumper;
+use Carp;
+use Data::Dumper;
 use Getopt::Long;
 use JSON;
 
 my %options;
 GetOptions(
     \%options,
-    "addoptions|a:s",
     "file|f:s",
     "name|n:s",
     "help|h:+",
@@ -88,12 +87,17 @@ sub check_status {
         my $event_ref = JSON->new->utf8->decode($out_json);
         my @stackevents = @{$event_ref->{StackEvents}};    
         foreach my $event (@stackevents) {
+            if ( $event->{ResourceStatus} =~ m/CREATE_FAILED/ ) {
+                print "\nFAIL: Stack creation failed!\n".Dumper($event);
+                $done = 1;
+                croak;
+            }
             next unless ( $event->{StackName} =~ m/$opts{name}/ ); # only look at this stack
             next unless ( $event->{ResourceType} =~ m/AWS::CloudFormation::Stack/ );
             if ( $event->{ResourceStatus} =~ m/CREATE_COMPLETE/ ) {
                 print "\nOK: Stack creation completed successfully!\n";
                 $done = 1;
-            }
+            } 
         }
     }
     return
@@ -102,8 +106,8 @@ sub check_status {
 sub create_stack {
     my %opts = @_;
     my $cmd = "aws cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} ";
-    if ( defined($opts{addoptions}) ) {
-        $cmd .= "$opts{addoptions}";
+    if ( defined($ARGV[0]) ) {
+        $cmd .= join(" ",@ARGV);
     }
     $cmd .= " 2>&1";
     my $results;
@@ -156,12 +160,12 @@ sub usage {
     print <<USAGE;
 
     Usage: $0 --file|-f {path/to/cftemplate} --name|-n {stack name}
-            [ --addoptions {create-stack options} ]
+            [ -- {create-stack options} ]
 
             file: the cloudformation template file
             name: the unique name to assign the stack
-            addoptions: additional options to include in the create-stack command
-    
+            additional options to include from the create-stack command
+            may be added after ending normal options (--).    
 USAGE
     exit(3);
 }
