@@ -1,7 +1,7 @@
 {
   "AWSTemplateFormatVersion" : "2010-09-09",
 
-  "Description" : "Create an ec2 instance that automatically starts httpd. **WARNING** This template creates one or more Amazon EC2 instances. You will be billed for the AWS resources used if you create a stack from this template.",
+  "Description" : "Create an ec2 instance that automatically starts httpd istening on a specified port. **WARNING** This template creates one or more Amazon EC2 instances. You will be billed for the AWS resources used if you create a stack from this template.",
 
   "Parameters" : {
     "InstanceType" : {
@@ -86,7 +86,7 @@
 
         "AWS::CloudFormation::Init" : {
           "configSets" : {
-            "Install" : [ "Install" ]
+            "InstallandRun" : [ "Install", "Configure" ]
           },
 
           "Install" : {
@@ -161,6 +161,19 @@
                 "httpd"   : { "enabled" : "true", "ensureRunning" : "true" }
               }
             }
+          },
+
+          "Configure" : {
+            "commands" : {
+              "01_set_listening_port" : {
+                "command" : { "Fn::Join" : ["", ["sed -i 's/^Listen .*/Listen ", { "Ref" : "WebServerPort" }, "/'", " /etc/httpd/conf/httpd.conf"]]},
+                "test" : { "Fn::Join" : ["", ["$(sed -n 'p' /etc/httpd/conf/httpd.conf &1>/dev/null); (( $? != 0 ))"]]}
+              },
+              "02_restart_apache" : {
+                "command" : "service httpd restart",
+                "test" : "$(service httpd status); (( $? != 0 ))"
+              }
+            }
           }
         }
       },
@@ -178,7 +191,7 @@
                     "/opt/aws/bin/cfn-init ",
                     "         --stack ", { "Ref" : "AWS::StackName" },
                     "         --resource Ec2Instance1 ",
-                    "         --configsets Install ",
+                    "         --configsets InstallandRun ",
                     "         --region ", { "Ref" : "AWS::Region" }, "\n",
                     "\n",
                     "# Signal the status from cfn-init\n",
@@ -231,7 +244,7 @@
   "Outputs" : {
     "URL" : {
       "Description" : "URL of the sample website",
-      "Value" :  { "Fn::Join" : [ "", [ "http://", { "Ref" : "IPAddress1" }]]}
+      "Value" :  { "Fn::Join" : [ "", [ "http://", { "Ref" : "IPAddress1" }, ":", { "Ref" : "WebServerPort" }, "/"]]}
     },
     "IP1" : {
       "Description" : "Public IP of first EC2 instance",
