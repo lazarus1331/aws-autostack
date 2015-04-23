@@ -79,6 +79,7 @@
   "Resources" : {
     "Ec2Instance1" : {
       "Type" : "AWS::EC2::Instance",
+
       "Metadata" : {
         "Comment1" : "Configure the bootstrap helpers to install the Apache Web Server and PHP",
         "Comment2" : "Save website content to /var/www/html/index.php",
@@ -163,6 +164,7 @@
           }
         }
       },
+
       "Properties" : {
         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
         "KeyName" : { "Ref" : "KeyName" },
@@ -178,8 +180,19 @@
                     "         --resource Ec2Instance1 ",
                     "         --configsets Install ",
                     "         --region ", { "Ref" : "AWS::Region" }, "\n",
-                    "\n"
+                    "\n",
+                    "# Signal the status from cfn-init\n",
+                    "/opt/aws/bin/cfn-signal -e $? ",
+                    "         --stack ", { "Ref" : "AWS::StackName" },
+                    "         --resource Ec2Instance1 ",
+                    "         --region ", { "Ref" : "AWS::Region" }, "\n"
         ]]}}
+      },
+
+      "CreationPolicy" : {
+        "ResourceSignal" : {
+          "Timeout" : "PT5M"
+        }
       }
     },
 
