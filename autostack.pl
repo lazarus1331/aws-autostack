@@ -54,7 +54,18 @@ foreach my $ref (@{$options{Outputs}}) {
     if ( $ref->{OutputKey} =~ m/url/i ) {
         print "Found URL type output. Proceeding with status code check:\n";
         my $url = $ref->{OutputValue};
-        my $status = qx(curl -L -s -o /dev/null -w "%{http_code}" $url);
+        my ($status,$done,$retry);
+        until ($done) {
+            eval { $status = qx(curl -L -s -o /dev/null -w "%{http_code}" $url) };
+            if ( $status =~ m/200/sx ) {
+                $done = 1;
+            } else {
+                $retry++;
+            }
+            if ( $retry > 2 ) {
+                $done = 1;
+            }
+        }
         print "URL: $url\nStatus: $status\n";
     }
 }
