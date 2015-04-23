@@ -82,6 +82,7 @@ sub check_status {
     my $done;
     until ($done) {
         sleep(20); # wait 20 seconds
+        print ".";
         my $out_json;
         eval { $out_json = qx($cmd) };
         my $event_ref = JSON->new->utf8->decode($out_json);
@@ -94,14 +95,17 @@ sub check_status {
                 $done = 1;
             }
         }
-        print ".";
     }
     return
 }
 
 sub create_stack {
     my %opts = @_;
-    my $cmd = "aws cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} $opts{addoptions} 2>&1";
+    my $cmd = "aws cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} ";
+    if ( defined($opts{addoptions}) ) {
+        $cmd .= "$opts{addoptions}";
+    }
+    $cmd .= " 2>&1";
     my $results;
     eval { $results = qx($cmd) };
     if ($? >> 8 == 0 && defined($results)) {
