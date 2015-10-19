@@ -15,6 +15,7 @@ GetOptions(
     "json|j:s",
     "file|f:s",
     "name|n:s",
+    "profile|p:s",
     "help|h:+",
 );
 
@@ -23,6 +24,8 @@ die usage("Here is some help.") if $options{help};
 die usage("Template file does not exist.") unless ( defined($options{file}) && -e $options{file} );
 die usage("Stack name must be provided.") unless ( defined($options{name}) );
 die usage("Json file does not exist.") if ( defined($options{json}) && -e $options{json} );
+$options{profile} = defined($options{profile}) ? "$options{profile}" : "default";
+my $aws_cmd = "aws --profile=$options{profile} ";
 
 ## Main ##
 $options{file} =~ s|/|//|;  # normalize file name for aws
@@ -81,7 +84,7 @@ exit(0);
 sub get_outputs {
     my $hash_ref = shift;
     my $name = $hash_ref->{name};
-    my $desc_json = qx(aws cloudformation describe-stacks --stack-name $name);
+    my $desc_json = qx($aws_cmd cloudformation describe-stacks --stack-name $name);
     my $stack_ref = JSON->new->utf8->decode($desc_json);
     my @stacks = @{$stack_ref->{Stacks}};
     my @outputs = @{$stacks[0]->{Outputs}};
@@ -91,7 +94,7 @@ sub get_outputs {
 
 sub check_status {
     my %opts = @_;
-    my $cmd = "aws cloudformation describe-stack-events --stack-name $opts{name}";
+    my $cmd = "$aws_cmd cloudformation describe-stack-events --stack-name $opts{name}";
     my $done;
     until ($done) {
         sleep(20); # wait 20 seconds
@@ -123,7 +126,7 @@ sub check_status {
 
 sub create_stack {
     my %opts = @_;
-    my $cmd = "aws cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} ";
+    my $cmd = "$aws_cmd cloudformation create-stack --stack-name $opts{name} --template-body file://$opts{file} ";
     if ( defined($options{json}) ) {
         $cmd .= "--cli-input-json ".$options{json};
     }
@@ -145,7 +148,7 @@ sub create_stack {
 
 sub validate_name {
     my $name = shift;
-    my $desc_json = qx(aws cloudformation describe-stacks);
+    my $desc_json = qx($aws_cmd cloudformation describe-stacks);
     my $stack_ref = JSON->new->utf8->decode($desc_json);
     my @stacks = @{$stack_ref->{Stacks}};
     foreach (@stacks) {
@@ -161,8 +164,8 @@ sub validate_name {
 sub validate_template {
     my $file = shift;
     my $filetest;
-    my $cmd = "aws cloudformation validate-template --template-body file://$file 2>&1";
-    my $cli_test = qx(aws cloudformation help);
+    my $cmd = "$aws_cmd cloudformation validate-template --template-body file://$file 2>&1";
+    my $cli_test = qx($aws_cmd cloudformation help);
     if ( !defined($cli_test) ) {
         die "failed to execute aws command. Please install the aws-cli library: pip install awscli (Requires Python 2.6.5 or higher.)\n$!";
     }
@@ -181,10 +184,12 @@ sub usage {
     print <<USAGE;
 
     Usage: $0 --file|-f {path/to/cftemplate} --name|-n {stack_name}
+			[--profile|-p {profile name}]
             [--json|-j {path/to/file} ] [ -- {create-stack options} ]
 
             file: the cloudformation template file
             name: the unique name to assign the stack
+            profile: the profile name to use (must use json output)
             json: the json file which describes the create-stack cli options
             additional options to include from the create-stack command
             may be added after ending normal options (--).    
@@ -205,10 +210,12 @@ __END__
 USE:
 
     autostack.pl --file|-f {path/to/cftemplate} --name|-n {stack_name}
+            [--profile|-p {profile name}]
             [--json|-j {path/to/file} ] [ -- {create-stack options} ]
 
             file: the cloudformation template file
             name: the unique name to assign the stack
+            profile: the profile name to use (must use json output)
             json: the json file which describes the create-stack cli options and parameters
             additional options to include from the create-stack command
             may be added after ending normal options (--).    
